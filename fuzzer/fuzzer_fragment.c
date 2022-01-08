@@ -1,16 +1,42 @@
+/*-
+ * Copyright (c) 2020 Yuquan Wang
+ *
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <assert.h>
 #include <usrsctp.h>
 #include "../programs/programs_helper.h"
 #define FUZZ_B_RESERVED1        	(1 << 0)
-#define FUZZ_B_RESERVED2      		(1 << 1)
+#define SACK_FLAG      		        (1 << 1)
 #define FUZZ_B_RESERVED3            (1 << 2)
-#define FUZZ_B_RESERVED4      		(1 << 3)
+#define FUZZ_B_RESERVED4            (1 << 3)
 #define NR_SACK_FLAG                (1 << 4)
-#define FUZZ_B_RESERVED5         	(1 << 5)
+#define FUZZ_B_RESERVED5            (1 << 5)
 #define I_DATA_FLAG                 (1 << 6)
 #define FUZZ_B_RESERVED6            (1 << 7)
 
@@ -113,7 +139,7 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t data_size)
 	int optval;
 	unsigned long i;
 	char* send_data_buffer;
-    uint16_t event_types[] = {
+	uint16_t event_types[] = {
 		SCTP_ASSOC_CHANGE,
 		SCTP_PEER_ADDR_CHANGE,
 		SCTP_REMOTE_ERROR,
@@ -185,7 +211,7 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t data_size)
 		"\x00\x03\x00\x01\x80\x03\x00\x06\x80\xc1\x00\x00\x81\xe1\x1e\x81" \
 		"\xea\x41\xeb\xf0\x12\xd9\x74\xbe\x13\xfd\x4b\x6c\x5c\xa2\x8f\x00";
 	char fuzz_cookie_ack[] = "\x13\x89\x13\x88\xb7\x0d\x32\x66\x00\x00\x00\x00\x0b\x00\x00\x04";
-	
+
 	char data_common_headr[] = "\x13\x89\x13\x88\xb7\x0d\x32\x66\x00\x00\x00\x00";
 
 	if (!initialized) {
@@ -199,18 +225,18 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t data_size)
 	}
 
 	socket_client = usrsctp_socket(AF_CONN, SOCK_STREAM, IPPROTO_SCTP, NULL, NULL, 0, 0);
-	assert(socket_client != NULL);
+	FUZZER_ASSERT(socket_client != NULL);
 
 	usrsctp_set_non_blocking(socket_client, 1);
 
 	memset(&initmsg, 1, sizeof(struct sctp_initmsg));
 	result = usrsctp_setsockopt(socket_client, IPPROTO_SCTP, SCTP_INITMSG, &initmsg, sizeof(struct sctp_initmsg));
-	assert(result == 0);
+	FUZZER_ASSERT(result == 0);
 
 	so_linger.l_onoff = 1;
 	so_linger.l_linger = 0;
 	result = usrsctp_setsockopt(socket_client, SOL_SOCKET, SO_LINGER, &so_linger, sizeof(struct linger));
-	assert(result == 0);
+	FUZZER_ASSERT(result == 0);
 
 	memset(&event, 0, sizeof(event));
 	event.se_on = 1;
@@ -221,23 +247,27 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t data_size)
 
 	optval = 1;
 	result = usrsctp_setsockopt(socket_client, IPPROTO_SCTP, SCTP_RECVRCVINFO, &optval, sizeof(optval));
-	assert(result == 0);
+	FUZZER_ASSERT(result == 0);
 
 	optval = 1;
 	result = usrsctp_setsockopt(socket_client, IPPROTO_SCTP, SCTP_RECVNXTINFO, &optval, sizeof(optval));
-	assert(result == 0);
+	FUZZER_ASSERT(result == 0);
 
 	if (data[0] & I_DATA_FLAG) {
 		// set the program supporting I-DATA
 		optval = 2;
 		result = usrsctp_setsockopt(socket_client, IPPROTO_SCTP, SCTP_FRAGMENT_INTERLEAVE, &optval, sizeof(optval));
-		assert(result == 0);
+		FUZZER_ASSERT(result == 0);
 
 		memset(&assoc_val, 0, sizeof(assoc_val));
 		assoc_val.assoc_value = 1;
 		result = usrsctp_setsockopt(socket_client, IPPROTO_SCTP, SCTP_INTERLEAVING_SUPPORTED, &assoc_val, sizeof(assoc_val));
-		assert(result == 0);
+		FUZZER_ASSERT(result == 0);
 	}
+
+	optval = 1;
+	result = usrsctp_setsockopt(socket_client, IPPROTO_SCTP, SCTP_REUSE_PORT, &optval, sizeof(optval));
+	FUZZER_ASSERT(result == 0);
 
 	memset(&sconn, 0, sizeof(struct sockaddr_conn));
 	sconn.sconn_family = AF_CONN;
@@ -248,11 +278,11 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t data_size)
 	sconn.sconn_addr = (void *)1;
 
 	result = usrsctp_bind(socket_client, (struct sockaddr *)&sconn, sizeof(struct sockaddr_conn));
-	assert(result == 0);
+	FUZZER_ASSERT(result == 0);
 
 	optval = 1;
 	result = usrsctp_setsockopt(socket_client, IPPROTO_SCTP, SCTP_NODELAY, &optval, sizeof(optval));
-	assert(result == 0);
+	FUZZER_ASSERT(result == 0);
 
 	usrsctp_set_upcall(socket_client, handle_upcall, NULL);
 
@@ -265,8 +295,8 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t data_size)
 	sconn.sconn_addr = (void *)1;
 
 	result = usrsctp_connect(socket_client, (struct sockaddr *)&sconn, sizeof(struct sockaddr_conn));
-	assert(result == 0 || errno == EINPROGRESS);
-	
+	FUZZER_ASSERT(result == 0 || errno == EINPROGRESS);
+
 	if (data[0] & NR_SACK_FLAG) {
 		common_header = (struct sctp_common_header*) fuzz_init_ack_nrsack_support;
 		common_header->verification_tag = assoc_vtag;
@@ -276,7 +306,7 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t data_size)
 		common_header->verification_tag = assoc_vtag;
 		usrsctp_conninput((void *)1, fuzz_init_ack, 448, 0);
 	}
-	
+
 
 	common_header = (struct sctp_common_header*) fuzz_cookie_ack;
 	common_header->verification_tag = assoc_vtag;
@@ -291,10 +321,11 @@ LLVMFuzzerTestOneInput(const uint8_t* data, size_t data_size)
 		if (fuzz_data_count + data_chunk_size > data_size) {
 			data_chunk_size = data_size - fuzz_data_count;
 		}
-		if (data[fuzz_data_count] & NR_SACK_FLAG) {
+		if (data[fuzz_data_count] & NR_SACK_FLAG ||
+		    data[fuzz_data_count] & SACK_FLAG) {
 			send_data_buffer = malloc(SEND_DATA_SIZE);
-			assert( send_data_buffer != NULL );
-			memset(send_data_buffer,1,SEND_DATA_SIZE);
+			FUZZER_ASSERT(send_data_buffer != NULL );
+			memset(send_data_buffer, 1, SEND_DATA_SIZE);
 			fuzzer_printf("Calling usrsctp_sendv()\n");
 			usrsctp_sendv(socket_client, send_data_buffer, SEND_DATA_SIZE, NULL, 0, NULL, 0, SCTP_SENDV_NOINFO, 0);
 			free(send_data_buffer);

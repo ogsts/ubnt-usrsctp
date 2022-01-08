@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2015-2015 Oleg Alexeenkov
-# Copyright (C) 2015-2019 Felix Weinrank
+# Copyright (C) 2015-2020 Felix Weinrank
 #
 # All rights reserved.
 #
@@ -34,14 +34,21 @@
 # INCLUDE MODULES AND SETTINGS
 #################################################
 
-set(VERSION "1.0.0")
+set(VERSION "0.9.5.0")
 
-set(prefix 					${CMAKE_INSTALL_PREFIX})
-set(exec_prefix 			${prefix})
-set(libdir 					${exec_prefix}/lib)
-set(includedir 				${prefix}/include/usrsctp)
+# Shared library API and ABI versions
+# Notice: shared library version must be in X.Y.Z format only
+set(SOVERSION_FULL "2.0.0")
+set(SOVERSION_SHORT "2")
+
+include(GNUInstallDirs)
+set(prefix ${CMAKE_INSTALL_PREFIX})
+set(exec_prefix ${prefix})
+set(libdir ${exec_prefix}/${CMAKE_INSTALL_LIBDIR})
+set(includedir ${prefix}/${CMAKE_INSTALL_INCLUDEDIR}/usrsctp)
+
 set(CMAKE_REQUIRED_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR})
-set(CMAKE_MACOSX_RPATH 		1)
+set(CMAKE_MACOSX_RPATH 1)
 
 include(CheckCCompilerFlag)
 
@@ -76,7 +83,9 @@ endif ()
 # MISC
 #################################################
 
-
+if (sctp_build_shared_lib)
+	set(BUILD_SHARED_LIBS 1)
+endif ()
 
 #################################################
 # LIBRARY FILES
@@ -183,9 +192,11 @@ if (NOT DEFINED CMAKE_INSTALL_LIBDIR)
 	SET(CMAKE_INSTALL_LIBDIR lib)
 endif ()
 
+install(TARGETS usrsctp DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(FILES usrsctp.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 #################################################
-# INSTALL LIBRARY AND HEADER
+# GENERATE AND INSTALL PKG-CONFIG FILE
 #################################################
 
 install(TARGETS usrsctp usrsctp-static DESTINATION ${CMAKE_INSTALL_LIBDIR})

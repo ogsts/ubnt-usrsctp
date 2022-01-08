@@ -4,9 +4,6 @@
 *.obj
 *.elf
 
-# macOS files
-.DS_Store
-
 # Precompiled Headers
 *.gch
 *.pch
@@ -79,15 +76,9 @@ programs/st_client
 programs/tsctp
 programs/test_libmgmt
 programs/test_timer
-programs/chargen_server_upcall
-programs/tsctp_upcall
 
 # callgrind
 callgrind.out*
 
 # cmake build
-install_manifest.txt
 /build
-CMakeCache.txt
-CMakeFiles
-cmake_install.cmake
